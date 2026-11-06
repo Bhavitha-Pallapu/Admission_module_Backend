@@ -31,7 +31,6 @@ func main() {
 		log.Fatal("Error changing to project root:", err)
 	}
 
-	// Load configuration
 	config.LoadConfig()
 
 	services.InitProducer()
