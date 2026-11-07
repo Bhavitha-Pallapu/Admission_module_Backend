@@ -1,114 +1,133 @@
 package errors
 
 import (
-	// Go internal packages
-	"bytes"
 	"encoding/json"
-	"errors"
+	stderrors "errors"
 )
 
-// Error defines a standard application error.
+// Error is a standard application error.
 type Error struct {
-	Kind    Kind   `json:"kind"`
-	Message string `json:"message"`
-	WrappedErr error `json:"wrapped_err,omitempty"`
+	Kind       Kind   `json:"kind"`
+	Message    string `json:"message"`
+	WrappedErr error  `json:"wrapped_err,omitempty"`
 }
 
-// Error returns the string representation of the error message.
+// Error returns the JSON representation of the application error.
 func (e *Error) Error() string {
-	var buf bytes.Buffer
-	json.NewEncoder(&buf).Encode(e)
-	return buf.String()
+	if e == nil {
+		return "<nil>"
+	}
+
+	data, err := json.Marshal(e)
+	if err != nil {
+		return e.Message
+	}
+	return string(data)
 }
 
 // Unwrap returns the wrapped error.
 func (e *Error) Unwrap() error {
+	if e == nil {
+		return nil
+	}
 	return e.WrappedErr
 }
 
-// NewError returns standard go error with given string
-func NewError(e string) error {
-	return errors.New(e)
+// NewError returns a standard Go error with the given message.
+func NewError(message string) error {
+	return stderrors.New(message)
 }
 
 // Kind defines the kind or class of an error.
 type Kind uint8
 
-// Transport agnostic error "kinds"
+// Transport-agnostic error kinds.
 const (
-	Other        Kind = iota // Unclassified error
-	Internal                 
-	Conflict             
-	Invalid                 
-	NotFound                 
-	Unauthorized            
-	Forbidden           
+	Other        Kind = iota // Unclassified error.
+	Internal                 // Internal server error.
+	Conflict                 // Conflict with the current state.
+	Invalid                  // Invalid input.
+	NotFound                 // Requested entity was not found.
+	Unauthorized             // Authentication is required or failed.
+	Forbidden                // The operation is not permitted.
 )
 
+// String returns the human-readable description of the error kind.
 func (k Kind) String() string {
 	switch k {
 	case Other:
 		return "unclassified error"
 	case Internal:
 		return "internal error"
+	case Conflict:
+		return "conflict"
 	case Invalid:
 		return "invalid input"
 	case NotFound:
 		return "entity not found"
+	case Unauthorized:
+		return "unauthorized"
+	case Forbidden:
+		return "forbidden"
 	default:
 		return "unknown error kind"
 	}
 }
 
+// MarshalJSON encodes the human-readable error kind.
 func (k Kind) MarshalJSON() ([]byte, error) {
 	return json.Marshal(k.String())
 }
 
+// E constructs an application error from a kind, message, and/or wrapped error.
+// Arguments of other types are ignored; when an argument type is repeated, the
+// last value takes precedence.
 func E(args ...interface{}) error {
-	e := &Error{}
+	err := &Error{}
 	for _, arg := range args {
-		switch arg := arg.(type) {
+		switch value := arg.(type) {
 		case Kind:
-			e.Kind = arg
+			err.Kind = value
 		case error:
-			e.WrappedErr = arg
+			err.WrappedErr = value
 		case string:
-			e.Message = arg
+			err.Message = value
 		}
 	}
-	return e
+	return err
 }
 
-// NewInternalServerError creates a new internal server error
-func NewInternalServerError(msg string) error {
-	return E(Internal, msg)
+// NewInternalServerError creates a new internal server error.
+func NewInternalServerError(message string) error {
+	return E(Internal, message)
 }
 
-// NewNotFoundError creates a new not found error
-func NewNotFoundError(msg string) error {
-	return E(NotFound, msg)
+// NewNotFoundError creates a new not found error.
+func NewNotFoundError(message string) error {
+	return E(NotFound, message)
 }
 
-// NewInvalidParamsError creates a new invalid parameters error
-func NewInvalidParamsError(msg string) error {
-	return E(Invalid, msg)
+// NewInvalidParamsError creates a new invalid-parameters error.
+func NewInvalidParamsError(message string) error {
+	return E(Invalid, message)
 }
 
-// NewUnauthorizedError creates a new unauthorized error
-func NewUnauthorizedError(msg string) error {
-	return E(Unauthorized, msg)
+// NewUnauthorizedError creates a new unauthorized error.
+func NewUnauthorizedError(message string) error {
+	return E(Unauthorized, message)
 }
 
-// NewForbiddenError creates a new forbidden error
-func NewForbiddenError(msg string) error {
-	return E(Forbidden, msg)
+// NewForbiddenError creates a new forbidden error.
+func NewForbiddenError(message string) error {
+	return E(Forbidden, message)
 }
 
-func NewConflictError(msg string) error {
-	return E(Conflict, msg)
+// NewConflictError creates a new conflict error.
+func NewConflictError(message string) error {
+	return E(Conflict, message)
 }
 
 var (
-	As = errors.As
-	Is = errors.Is
+	As = stderrors.As
+	Is = stderrors.Is
 )
